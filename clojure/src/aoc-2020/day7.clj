@@ -1,6 +1,6 @@
 (ns aoc-2020.day7
   (:require
-   [adventofcode.day2 :refer [nm]]
+   [aoc-2020.day2 :refer [nm]]
    [clojure.java.io :as io]
    [debugger :refer [dbg]]
    [the.parsatron :as p]))
