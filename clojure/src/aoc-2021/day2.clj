@@ -1,28 +1,27 @@
 (ns aoc-2021.day2
   "Submarine instructions"
   (:require
-   [aoc-2020.day2 :refer [nm]]
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [debugger :refer [dbg]]
    [the.parsatron :as p]))
 
 (defn fresh-state
-  "Returns a pair of numbers: [horizontal position, depth]"
+  "Returns a triple of numbers: [horizontal position, depth, aim]"
   []
-  [0,0])
+  [0,0,0])
 
 (defn forward
-  [arg [x d]]
-  [(+ x arg) d])
+  [arg [x d a]]
+  [(+ x arg) (+ d (* a arg)) a])
 
 (defn down
-  [arg [x d]]
-  [x (+ d arg)])
+  [arg [x d a]]
+  [x d (+ a arg)])
 
 (defn up
-  [arg [x d]]
-  [x (- d arg)])
+  [arg [x d a]]
+  [x d (- a arg)])
 
 (def instrs {:forward forward
              :down down
@@ -71,7 +70,7 @@
 
   ;; Run with the real input, get the final answer
   (with-open [r (io/reader (io/resource "aoc-2021/day2.txt"))]
-    (runner (line-seq r))) ;; 2120749
+    (runner (line-seq r))) ;; 2138382217 pt 2 ;; 2120749 pt 1
 
 
   )
