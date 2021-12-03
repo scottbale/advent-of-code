@@ -1,4 +1,5 @@
 (ns aoc-2020.day11
+  "Like Conway's GOL but with airplane seats being occupied or not."
   (:require
    [clojure.java.io :as io]
    [debugger :refer [dbg]]))
@@ -80,6 +81,20 @@
 
 (comment
 
+
+  ((fn [x y]
+        (let [n 40
+              w 8
+              ]
+          (+ (* w y) x))) 2 3)
+
+  ((fn [seat]
+        (let [n 40
+              w 8
+              x (mod seat w)
+              y (/ (- seat x) w)]
+          [x y])) 26)
+
   (runner ["L.LL.LL.LL"
            "LLLLLLL.LL"
            "L.L.L..L.."
@@ -91,8 +106,8 @@
            "L.LLLLLL.L"
            "L.LLLLL.LL"])
 
-  (with-open [r (io/reader (io/resource "aoc-2020/day11.txt"))]
-    (runner (line-seq r))) ;;2483   ;; 3551 on test run
+  (time (with-open [r (io/reader (io/resource "aoc-2020/day11.txt"))]
+     (runner (line-seq r)))) ;;2483   ;; 3551 on test run ;; 8 seconds to run
 
   (runner ["L#"
            "LL"])
