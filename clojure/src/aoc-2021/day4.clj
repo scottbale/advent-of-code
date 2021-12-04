@@ -90,7 +90,7 @@
            (drop-while (comp not winner?)) ;; TODO computing `winner?` twice for some boards - memoize?
            first))))
 
-(defn runner
+(defn runner-pt1
   "A game is the drawn numbers (up through winning number?) and one or more boards (identify winning board?).
   A board is a seq of 25 numbers and some way to mark a spot as 'marked'? Have to sum unmarked numbers."
   [input]
@@ -110,10 +110,39 @@
         winner (determine-winner drawn boards)]
     (winning-score winner)))
 
+(defn play-all-to-completion
+  "Like `determine-winner`, but play all boards to completion with the original input, and return them all"
+  ;; Pt 1 could be reimplemented to work like pt 2, except with a `first-winner` function. I thought
+  ;; I was being so clever in `determine-winner` by optimizing the search by only using the drawn
+  ;; number seq from the previous board, but that didn't play all boards to completion, it was only
+  ;; optimized for the pt 1 case of finding the first place winner. And did it really save much time?
+  [input boards]
+  (letfn [(reducer [played-boards board]
+            (conj played-boards (play-to-completion input board)))]
+    (reduce reducer [] boards)))
+
+(def last-winner
+  "Of the winning boards, find the one that would have won last"
+  ;; yep, showing off with `comp` and `partial`
+  (comp last (partial sort-by drawn-count) (partial filter winner?)))
+
+(defn runner
+  "For part 2 determine last board to win"
+  [input]
+  (let [drawn (edn/read-string (str \[ (first input) \]))
+        boards-raw (drop 2 input)
+        raw-partitions (partition-all 5 6 boards-raw)
+        boards-strs (map (fn [board-strs] (str \[ (s/join \, board-strs) \])) raw-partitions)
+        boards (map (comp fresh-board edn/read-string) boards-strs)
+        played-boards (play-all-to-completion drawn boards)]
+    (winning-score (last-winner played-boards))))
+
 (comment
 
+  ;; pt 2
+
   (with-open [r (io/reader (io/resource "aoc-2021/day4.txt"))]
-    (runner (line-seq r))) ;; 65325
+    (runner (line-seq r))) ;; 4624
 
   (runner ["7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1"
            ""
@@ -134,6 +163,31 @@
            "18  8 23 26 20"
            "22 11 13  6  5"
            "2  0 12  3  7"])
+
+  ;; pt 1
+
+  (with-open [r (io/reader (io/resource "aoc-2021/day4.txt"))]
+    (runner-pt1 (line-seq r))) ;; 65325
+
+  (runner-pt1 ["7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1"
+               ""
+               "22 13 17 11  0"
+               "8  2 23  4 24"
+               "21  9 14 16  7"
+               "6 10  3 18  5"
+               "1 12 20 15 19"
+               ""
+               "3 15  0  2 22"
+               "9 18 13 17  5"
+               "19  8  7 25 23"
+               "20 11 10 24  4"
+               "14 21 16 12  6"
+               ""
+               "14 21 17 24  4"
+               "10 16 15  9 19"
+               "18  8 23 26 20"
+               "22 11 13  6  5"
+               "2  0 12  3  7"])
 
   (let [input [7 4 9 5 11 17 23 2 0 14 21 24 10 16 13 6 15 25 12 22 18 20 8 19 3 26 1]
         board (fresh-board [14 21 17 24 4 10 16 15  9 19 18  8 23 26 20 22 11 13  6  5 2  0 12  3  7])]
@@ -222,5 +276,21 @@
         raw-partitions (partition-all 5 6 boards-raw)
         boards-strs (map (fn [board-strs] (str \[ (s/join \, board-strs) \])) raw-partitions)]
     (map (comp fresh-board edn/read-string) boards-strs))
+
+  ;; play all boards to completion
+  (let [input [7 4 9 5 11 17 23 2 0 14 21 24 10 16 13 6 15 25 12 22 18 20 8 19 3 26 1]
+        boards [(fresh-board [22 13 17 11  0
+                              8  2 23  4 24
+                              21  9 14 16  7
+                              6 10  3 18  5
+                              1 12 20 15 19])
+                ;; winning
+                (fresh-board [14 21 17 24 4 10 16 15  9 19 18  8 23 26 20 22 11 13  6  5 2  0 12  3  7])
+                (fresh-board [ 3 15  0  2 22
+                              9 18 13 17  5
+                              19  8  7 25 23
+                              20 11 10 24  4
+                              14 21 16 12  6])]]
+    (play-all-to-completion input boards))
 
   )
