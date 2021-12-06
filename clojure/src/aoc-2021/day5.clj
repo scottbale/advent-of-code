@@ -34,7 +34,7 @@
   [counts point]
   (update counts point (fnil inc 0)))
 
-(defn parse-point
+(defn parse-line
   "Parse string like '0,9 -> 5,9' into vector of two pairs [[0 9] [5 9]]"
   [line-string]
   (let [result (s/split line-string #" -> ")
@@ -47,7 +47,7 @@
   by two or more."
   [input]
   (->> input
-       (map parse-point)
+       (map parse-line)
        (filter (some-fn horizontal? vertical?))
        (mapcat line->points)
        (reduce count-point {})
@@ -58,7 +58,7 @@
   "Like pt 1, but also consider the remaining input lines which include diagonal."
   [input]
   (->> input
-       (map parse-point)
+       (map parse-line)
        (mapcat line->points)
        (reduce count-point {})
        (filter (fn [[k v]] (>= v 2)))
@@ -102,7 +102,7 @@
   ;; nil-safe counting
   (update {[1 1] 1} [1 1] (fnil inc 0))
 
-  (parse-point "0,9 -> 5,9")
+  (parse-line "0,9 -> 5,9")
 
   ;; filter map entries based on value
   (filter 
