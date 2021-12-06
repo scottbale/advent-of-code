@@ -27,6 +27,25 @@
           y (range y-min (inc y-max))]
       [x y])))
 
+(defn ranger
+  "Return a range of both points, inclusive, taking into account direction"
+  [x1 x2]
+  (let [step (if (< x1 x2) 1 -1)]
+    (range x1 (+ x2 step) step)))
+
+(defn diagonal-line->points
+  [[[x1 y1] [x2 y2] :as point]]
+  (let [xs (ranger x1 x2)
+        ys (ranger y1 y2)]
+    (map vector xs ys)))
+
+(defn better-line->points
+  "Given a horizontal vertical or diagonal line, return the seq of all points"
+  [[[x1 y1] [x2 y2] :as point]]
+  (cond
+    (or (horizontal? point) (vertical? point)) (line->points point)
+    :its-diagonal (diagonal-line->points point)))
+
 (defn count-point
   "Map a point to a count of that point"
   [counts point]
@@ -48,11 +67,33 @@
        (mapcat line->points)
        (reduce count-point {})
        (filter (fn [[k v]] (>= v 2)))
-       count
-       ))
+       count))
+
+(defn runner-pt2
+  [input]
+  (->> input
+       (map parse-point)
+       (mapcat better-line->points)
+       (reduce count-point {})
+       (filter (fn [[k v]] (>= v 2)))
+       count))
 
 
 (comment
+
+  (runner-pt2 ["0,9 -> 5,9"
+               "8,0 -> 0,8"
+               "9,4 -> 3,4"
+               "2,2 -> 2,1"
+               "7,0 -> 7,4"
+               "6,4 -> 2,0"
+               "0,9 -> 2,9"
+               "3,4 -> 1,4"
+               "0,0 -> 8,8"
+               "5,5 -> 8,2"])
+
+  (with-open [r (io/reader (io/resource "aoc-2021/day5.txt"))]
+    (runner-pt2 (line-seq r))) ; 21698
 
   (runner-pt1 ["0,9 -> 5,9"
                "8,0 -> 0,8"
@@ -75,6 +116,8 @@
   (line->points [[1 1] [1 4]])
   (line->points [[1 1] [4 1]])
   (line->points [[8 2] [4 2]])
+  (better-line->points [[1 1] [4 4]])
+  (better-line->points [[4 1] [1 4]])
 
   (update {[1 1] 1} [1 1] (fnil inc 0))
 
@@ -84,4 +127,7 @@
    (fn [[k v]] (>= v 2))
    {[1 1] 1 [8 3] 2}
    )
+
+  (ranger 1 4)
+  (ranger 4 1)
 )
