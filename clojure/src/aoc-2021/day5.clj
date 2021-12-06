@@ -1,5 +1,5 @@
 (ns aoc-2021.day5
-  "Thermal vent lines"
+  "Overlapping thermal vent lines"
   (:require
    [clojure.edn :as edn]
    [clojure.java.io :as io]
@@ -16,35 +16,18 @@
   [[[x1 y1] [x2 y2]]]
   (== y1 y2))
 
-(defn line->points
-  "Given a horizontal or vertical line, return the seq of all points"
-  [[[x1 y1] [x2 y2] :as point]]
-  (let [x-min (min x1 x2)
-        x-max (max x1 x2)
-        y-min (min y1 y2)
-        y-max (max y1 y2)]
-    (for [x (range x-min (inc x-max))
-          y (range y-min (inc y-max))]
-      [x y])))
-
 (defn ranger
   "Return a range of both points, inclusive, taking into account direction"
   [x1 x2]
   (let [step (if (< x1 x2) 1 -1)]
     (range x1 (+ x2 step) step)))
 
-(defn diagonal-line->points
-  [[[x1 y1] [x2 y2] :as point]]
-  (let [xs (ranger x1 x2)
-        ys (ranger y1 y2)]
+(defn line->points
+  "Given any input line, return the seq of all points of that line, inclusive"
+  [[[x1 y1] [x2 y2] :as line]]
+  (let [xs (if (horizontal? line) (repeat x1) (ranger x1 x2))
+        ys (if (vertical? line) (repeat y1) (ranger y1 y2))]
     (map vector xs ys)))
-
-(defn better-line->points
-  "Given a horizontal vertical or diagonal line, return the seq of all points"
-  [[[x1 y1] [x2 y2] :as point]]
-  (cond
-    (or (horizontal? point) (vertical? point)) (line->points point)
-    :its-diagonal (diagonal-line->points point)))
 
 (defn count-point
   "Map a point to a count of that point"
@@ -60,6 +43,8 @@
     (map point-parser result)))
 
 (defn runner-pt1
+  "Consider only input lines that are horizontal or vertical. Count the number of points that overlap
+  by two or more."
   [input]
   (->> input
        (map parse-point)
@@ -70,10 +55,11 @@
        count))
 
 (defn runner-pt2
+  "Like pt 1, but also consider the remaining input lines which include diagonal."
   [input]
   (->> input
        (map parse-point)
-       (mapcat better-line->points)
+       (mapcat line->points)
        (reduce count-point {})
        (filter (fn [[k v]] (>= v 2)))
        count))
@@ -113,16 +99,12 @@
   ((some-fn horizontal? vertical?) [[1 1] [2 1]])
   ((some-fn horizontal? vertical?) [[1 1] [1 2]])
 
-  (line->points [[1 1] [1 4]])
-  (line->points [[1 1] [4 1]])
-  (line->points [[8 2] [4 2]])
-  (better-line->points [[1 1] [4 4]])
-  (better-line->points [[4 1] [1 4]])
-
+  ;; nil-safe counting
   (update {[1 1] 1} [1 1] (fnil inc 0))
 
   (parse-point "0,9 -> 5,9")
 
+  ;; filter map entries based on value
   (filter 
    (fn [[k v]] (>= v 2))
    {[1 1] 1 [8 3] 2}
@@ -130,4 +112,18 @@
 
   (ranger 1 4)
   (ranger 4 1)
+
+  (line->points [[1 1] [1 4]])
+  (line->points [[1 1] [4 1]])
+  (line->points [[8 2] [4 2]])
+  (line->points [[1 1] [4 4]])
+  (line->points [[4 1] [1 4]])
+
+  ;; does this truncate the longer input? Yes
+  (map vector [1 2] [:a :b :c])
+
+  ;; Cool Clojure things I was reminded of:
+  ;; some-fn
+  ;; fnil
+
 )
