@@ -29,11 +29,6 @@
         ys (if (vertical? line) (repeat y1) (ranger y1 y2))]
     (map vector xs ys)))
 
-(defn count-point
-  "Map a point to a count of that point"
-  [counts point]
-  (update counts point (fnil inc 0)))
-
 (defn parse-line
   "Parse string like '0,9 -> 5,9' into vector of two pairs [[0 9] [5 9]]"
   [line-string]
@@ -50,7 +45,7 @@
        (map parse-line)
        (filter (some-fn horizontal? vertical?))
        (mapcat line->points)
-       (reduce count-point {})
+       frequencies
        (filter (fn [[k v]] (>= v 2)))
        count))
 
@@ -60,7 +55,7 @@
   (->> input
        (map parse-line)
        (mapcat line->points)
-       (reduce count-point {})
+       frequencies
        (filter (fn [[k v]] (>= v 2)))
        count))
 
@@ -125,5 +120,6 @@
   ;; Cool Clojure things I was reminded of:
   ;; some-fn
   ;; fnil
+  ;; forgot about frequencies again!
 
 )
