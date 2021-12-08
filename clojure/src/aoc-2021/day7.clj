@@ -6,39 +6,73 @@
    [debugger :refer [dbg]]))
 
 (defn runner-pt1
+  "Sort input. Take avg of input. Starting from ints closest to that avg, search upwards and downwards
+  in the search space, until the calculated costs are no longer decreasing "
   [input]
   (let [input (edn/read-string (str \[ input \]))
         input (sort input)
         total (reduce + input)
         size (count input)
         avg (/ total size)
-        _ (println ">>>>>> total, size, avg" total size avg)
+        ;; _ (println ">>>>>> total, size, avg" total size avg)
         c (long (Math/ceil avg))
         f (long (Math/floor avg))
-        _ (println ">>>> ceil floor" c f)
+        ;; _ (println ">>>> ceil floor" c f)
         increasing (range (inc c) (inc (last input)))
         decreasing (range f (dec (first input)) -1)
-        _ (println ">>>> endpoints" (first input) (last input))
-        _ (println ">>>> endpoints increasing" (first increasing) (last increasing))
-        _ (println ">>>> endpoints decreasing" (first decreasing) (last decreasing))
-        
-        
+        ;; _ (println ">>>> endpoints" (first input) (last input))
+        ;; _ (println ">>>> endpoints increasing" (first increasing) (last increasing))
+        ;; _ (println ">>>> endpoints decreasing" (first decreasing) (last decreasing))
         summer (fn [n]
                  (reduce + (map (fn [j] (Math/abs (- n j))) input)))
-        
         sum-c (summer c)
         minner (fn [[res sum] n]
                  (let [sum' (summer n)]
-                   (println ">>>>>comparing" [res sum] [n sum'] "for" res n)
+                   ;; (println ">>>>>comparing" [res sum] [n sum'] "for" res n)
                    (if (< sum sum')
                      (reduced [res sum])
                      [n sum'])))
         [x sum-x] (reduce minner [c sum-c] increasing)
         [x sum-x] (reduce minner [x sum-x] decreasing)]
-    sum-x
-    ))
+    sum-x))
+
+(defn runner-pt2
+  "Only difference from pt 1 is in `summer` function"
+  [input]
+  (let [input (edn/read-string (str \[ input \]))
+        input (sort input)
+        total (reduce + input)
+        size (count input)
+        avg (/ total size)
+        c (long (Math/ceil avg))
+        f (long (Math/floor avg))
+        increasing (range (inc c) (inc (last input)))
+        decreasing (range f (dec (first input)) -1)
+        summer (fn [n]
+                 (reduce + (map
+                            (fn [j]
+                              (reduce + (range (inc (Math/abs (- n j))))))
+                            input)))
+        sum-c (summer c)
+        minner (fn [[res sum] n]
+                 (let [sum' (summer n)]
+                   (if (< sum sum')
+                     (reduced [res sum])
+                     [n sum'])))
+        [x sum-x] (reduce minner [c sum-c] increasing)
+        [x sum-x] (reduce minner [x sum-x] decreasing)]
+    [x sum-x]))
 
 (comment
+
+  ;; pt 2
+
+  (runner-pt2 "16,1,2,0,4,2,7,1,2,14") ;; [5 168]
+
+  (with-open [r (io/reader (io/resource "aoc-2021/day7.txt"))]
+    (runner-pt2 (first (line-seq r)))) ;; [499 98368490]
+
+  ;; pt 1
 
   (runner-pt1 "16,1,2,0,4,2,7,1,2,14")
 
@@ -83,8 +117,5 @@
         [x sum-x] (reduce minner [x sum-x] decreasing)]
     x
     )
-
-
-
 
   )
