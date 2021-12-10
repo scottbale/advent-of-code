@@ -6,6 +6,7 @@
    [debugger :refer [dbg]]))
 
 (def scores {\) 3 \] 57 \} 1197 \> 25137})
+(def closing-scores {\) 1 \] 2 \} 3 \> 4})
 
 (def delims {\( \)
              \[ \]
@@ -26,28 +27,68 @@
     [score (cons next-delim delim-stack)]))
 
 (defn score-line
-  "Process a line of input, return a score of zero or more"
+  "Process a line of input, return a pair [score of zero or more, unclosed open-delimiter stack]"
   [line]
-  (first (reduce reduce-line [0 []] line)))
+  (reduce reduce-line [0 []] line))
+
+(defn complete-line
+  "Given the remaining open delim queue of an incomplete lines, return the closing delims that would
+  complete the line"
+  [open-delims]
+  (map delims open-delims))
+
+(defn score-complete-line
+  "Score the completing delims"
+  [close-delims]
+  (reduce (fn [score delim]
+            (+ (* score 5) (closing-scores delim))) 0 close-delims))
 
 (defn runner-pt1
-  ""
+  "Sum the score of all corrupted input lines"
   [input]
-  (reduce + (map score-line input)))
+  (reduce + (map (comp first score-line) input)))
+
+(defn runner-pt2
+  "Complete and score the incomplete lines, sort scores, return the middle score"
+  [input]
+  (let [score-queue-pairs (map score-line input)
+        scores (->> score-queue-pairs
+                    (remove (comp pos? first))
+                    (map (comp score-complete-line complete-line last))
+                    sort)
+        score-count (count scores)
+        half-count (long (/ score-count 2))]
+    (->> scores (drop half-count) first)))
 
 (comment
 
+  ;; pt 2
+
+  (runner-pt2 ["[({(<(())[]>[[{[]{<()<>>"
+               "[(()[<>])]({[<{<<[]>>("
+               "{([(<{}[<>[]}>{[]{[(<()>"
+               "(((({<>}<{<{<>}{[]{[]{}"
+               "[[<[([]))<([[{}[[()]]]"
+               "[{[{({}]{}}([{[{{{}}([]"
+               "{<[[]]>}<{[{[{[]{()[[[]"
+               "[<(<(<(<{}))><([]([]()"
+               "<{([([[(<>()){}]>(<<{{"
+               "<{([{{}}[<[[[<>{}]]]>[]]"]) ;; 288957
+
+  (with-open [r (io/reader (io/resource "aoc-2021/day10.txt"))]
+    (runner-pt2 (line-seq r))) ;; 1118976874
+
   ;; pt 1
 
-  (runner-pt1 ["[({(<(())[]>[[{[]{<()<>>" 
-               "[(()[<>])]({[<{<<[]>>(" 
-               "{([(<{}[<>[]}>{[]{[(<()>" 
-               "(((({<>}<{<{<>}{[]{[]{}" 
-               "[[<[([]))<([[{}[[()]]]" 
-               "[{[{({}]{}}([{[{{{}}([]" 
-               "{<[[]]>}<{[{[{[]{()[[[]" 
-               "[<(<(<(<{}))><([]([]()" 
-               "<{([([[(<>()){}]>(<<{{" 
+  (runner-pt1 ["[({(<(())[]>[[{[]{<()<>>"
+               "[(()[<>])]({[<{<<[]>>("
+               "{([(<{}[<>[]}>{[]{[(<()>"
+               "(((({<>}<{<{<>}{[]{[]{}"
+               "[[<[([]))<([[{}[[()]]]"
+               "[{[{({}]{}}([{[{{{}}([]"
+               "{<[[]]>}<{[{[{[]{()[[[]"
+               "[<(<(<(<{}))><([]([]()"
+               "<{([([[(<>()){}]>(<<{{"
                "<{([{{}}[<[[[<>{}]]]>[]]"]) ;; 26397
 
   (with-open [r (io/reader (io/resource "aoc-2021/day10.txt"))]
@@ -58,6 +99,9 @@
   (reduce-line [0 [\[ \{]] \])
   (reduce-line [0 [\[ \{]] \>)
   (score-line "[({(<(())[]>[[{[]{<()<>>")
+  (complete-line [\{ \(])
+  (score-complete-line [\] \) \} \>])
+
 
 
   )
