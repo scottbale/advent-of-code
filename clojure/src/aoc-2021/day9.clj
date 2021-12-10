@@ -3,6 +3,7 @@
   (:require
    [clojure.edn :as edn]
    [clojure.java.io :as io]
+   [clojure.set :as c.set]
    [debugger :refer [dbg]]))
 
 (def input->digits
@@ -17,33 +18,77 @@
         e (+ b w -1)] ;; end row
     (concat
      (for [r [(dec n) (inc n)] :when (and (>= r b) (<= r e))] r) 
-     (for [c [(- n w) (+ n w)] :when (and (>= c 0) (<= c (* w h)))] c))))
+     (for [c [(- n w) (+ n w)] :when (and (>= c 0) (< c (* w h)))] c))))
+
+(defn low-points
+  "Given the input (parsed into a seq of numbers) etc., find and return the points, in
+  the form of a pair of numbers [value index]"
+  [input indices adjacents-seq]
+  (let [nths (partial nth input)]
+    (letfn [(min-finder [found [n i adjs]]
+              (if (every? (partial < n) (map nths adjs))
+                (conj found [n i])
+                found))]
+      (reduce min-finder [] (map vector input indices adjacents-seq)))))
+
+(defn basin
+  "Given the input and a known low point [value index], recursively discover the set of [value index] pairs comprising the basin. "
+  [input indices adjacents-seq [n i :as low-point]]
+  (letfn [(not-basin? [[n i]] (== n 9))
+          (zip-adjacents [adjacents]
+            (map #(vector (nth input %) %) adjacents))
+          (step [found queue]
+            (let [[[val i :as point] & more :as queue] (drop-while not-basin? queue)]
+              (if (nil? val)
+                found
+                (let [adjs (nth adjacents-seq i)
+                      ;; make adjs a set of [val i] pairs
+                      adjs (set (zip-adjacents adjs))
+                      adjs (c.set/difference adjs found)]
+                  (recur (conj found point) (into more adjs))))))]
+    (step #{low-point} (set (zip-adjacents (nth adjacents-seq i))))))
 
 (defn runner-pt1
   "Input is a seq of numbers representing two-dimensional height map"
   [input]
   (let [h (count input)
         w (count (first input))
-        ;; _ (println ">>>>w" w "h" h)
         input (mapcat input->digits input)
-        adjacents-seq (map (partial adjacents w h) (range 0 (* w h)))
-        nths (partial nth input)]
-    ;; returns a seq of numbers which are low points in the input
-    (letfn [(min-finder [found [n adjs]]
-              ;; (println ">>>>checking" n "with adjacent indices" adjs)
-              (if (every? (partial < n) (map nths adjs))
-                (conj found n)
-                found))]
-      (->> (reduce min-finder [] (map vector input adjacents-seq))
-           (map inc)
-           (reduce +)))))
+        indices (range 0 (* w h))
+        adjacents-seq (map (partial adjacents w h) indices)]
+    (->> (low-points input indices adjacents-seq)
+         (map (comp inc first))
+         (reduce +))))
 
-
-
-
+(defn runner-pt2
+  "Find the product of the sizes of the top three largest basins."
+  [input]
+  (let [h (count input)
+        w (count (first input))
+        input (mapcat input->digits input)
+        indices (range 0 (* w h))
+        adjacents-seq (map (partial adjacents w h) indices)
+        low-point-pairs (low-points input indices adjacents-seq)
+        basin-f (partial basin input indices adjacents-seq)]
+    (->> low-point-pairs
+         (map (comp count basin-f))
+         sort
+         reverse
+         (take 3)
+         (reduce *))))
 
 (comment
 
+  ;; pt 2
+
+  (runner-pt2 ["2199943210"
+               "3987894921"
+               "9856789892"
+               "8767896789"
+               "9899965678"]) ;; 1134
+
+  (with-open [r (io/reader (io/resource "aoc-2021/day9.txt"))]
+    (runner-pt2 (line-seq r))) ;; 891684
 
   ;; pt 1
 
@@ -82,7 +127,29 @@
   (adjacents 4 5 11)
   (adjacents 4 5 12)
   (adjacents 10 5 5)
-  (range 0 (* 4 5))
+  (adjacents 100 100 9998)
+  ;; blammo!
+  (adjacents 100 100 9900)
+  ;; blammo!
+  (adjacents 10 10 90)
+  ;; blammo!
+  (adjacents 3 3 6)
+  ;; blammo!
+  (adjacents 2 2 2)
+
+
+  ;; Had to use this to debug how an adjacent was overflowing the size of the grid
+  ;; Identified the problem with `(adjacents 100 100 9900)`
+  ;; bug: `<=` not `<` in second `for` form of `adjacents`
+  (let [w 100
+        h 100
+        indices (range 0 (* w h))
+        adjs (map #(vector % (adjacents w h %)) indices)
+        ]
+    (filter
+     (fn [[n adjs]]
+       (some (partial == 10000) adjs))
+     adjs))
 
   
   (let [input [1 2 3 4 5]]
