@@ -1,0 +1,12 @@
+{
+  "name": "advent-of-code-2021",
+  "version": "0.0.1",
+  "description": "Advent of Code 2021",
+  "main": "index.js",
+  "scripts": {
+    "test": "node_modules/mocha/bin/mocha aoc-202*/**-test.js"
+  },
+  "devDependencies": {
+    "mocha": "^9.1.3"
+  }
+}
