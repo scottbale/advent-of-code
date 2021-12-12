@@ -6,6 +6,9 @@
   "scripts": {
     "test": "node_modules/mocha/bin/mocha aoc-202*/**-test.js"
   },
+  "dependencies": {
+    "underscore": "^1.13.1"
+  },
   "devDependencies": {
     "mocha": "^9.1.3"
   }

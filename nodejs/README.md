@@ -10,7 +10,7 @@ Open nodejs repl in emacs:
     M-x nodejs-repl
 
 https://nodejs.dev/learn/how-to-use-the-nodejs-repl
-
+https://nodejs.org/api/repl.html
 
 keybindings (`C-x C-e` these, restart `js2-mode`)
 
@@ -21,3 +21,5 @@ keybindings (`C-x C-e` these, restart `js2-mode`)
             (define-key js-mode-map (kbd "C-c M-j") 'nodejs-repl)
             (define-key js-mode-map (kbd "C-c M-c") 'nodejs-repl)
             ))
+
+Can't really use `const` or else reloading the buffer fails.
