@@ -1,0 +1,21 @@
+(ns %s.%s
+  "docstring"
+  (:require
+   [clojure.java.io :as io]
+   [debugger :refer [dbg]]))
+
+(defn runner
+  "runner docstring"
+  [input]
+  )
+
+
+(comment
+
+  (runner []) ;; <-- test data
+
+  (with-open [r (io/reader (io/resource "%s/%s.txt"))]
+    (runner (line-seq r)))
+
+
+  )
