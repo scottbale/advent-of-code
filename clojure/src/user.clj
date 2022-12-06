@@ -16,4 +16,5 @@
     (io/make-parents src-file)
     (spit src-file final)
     (io/make-parents resource-file)
-    (spit resource-file "")))
+    (spit resource-file "")
+    (format "Created '%s' and '%s'" src-file resource-file)))
