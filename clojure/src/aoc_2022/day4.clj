@@ -24,14 +24,28 @@
   (let [ranges (str/split input #",")]
     (map (comp range->bigint parse-range) ranges)))
 
-(defn overlapping?
-  "Given a pair of two sections (represented by two BigIntegers), they are overlapping if doing a
+(defn fully-overlapping?
+  "Given a pair of two sections (represented by two BigIntegers), they are fully overlapping if doing a
   bitwise OR produces one or the other BigInteger."
   [[biginteger1 biginteger2 :as bigintegers]]
   (not (nil? ((set bigintegers) (.or biginteger1 biginteger2)))))
 
-(defn runner
+(defn overlapping?
+  "Given a pair of two sections (represented by two BigIntegers), they are overlapping if doing a
+  bitwise AND is greater than zero."
+  [[biginteger1 biginteger2]]
+  (< 0 (.and biginteger1 biginteger2)))
+
+(defn runner1
   "Each line of input is two ranges, count how many range pairs have one fully containing the other."
+  [input]
+  (->> input
+       (map parse-input)
+       (filter fully-overlapping?)
+       count))
+
+(defn runner
+  "Each line of input is two ranges, count how many range pairs have one overlapping the other."
   [input]
   (->> input
        (map parse-input)
@@ -49,12 +63,18 @@
            "2-6,4-8"]) ;; 2
 
   (with-open [r (io/reader (io/resource "aoc-2022/day4.txt"))]
-    (runner (line-seq r))) ;; 547
+    (runner (line-seq r))) ;; 843 ;; 547
 
-  (parse-input "2-4,2-4")
+  (parse-input "2-4,6-8")
+  (parse-input "5-7,7-9")
   (parse-range "2-4")
   (range->bigint (range 1 3))
-  (overlapping? [(biginteger 1) (biginteger 3)])
+  (fully-overlapping? [(biginteger 1) (biginteger 3)])
+  (fully-overlapping? [(biginteger 3) (biginteger 3)])
+  (fully-overlapping? [(biginteger 3) (biginteger 14)])
   (overlapping? [(biginteger 3) (biginteger 3)])
+  (overlapping? [(biginteger 3) (biginteger 14)])
+  (overlapping? [(biginteger 1) (biginteger 4)])
+  (overlapping? [(biginteger 224) (biginteger 896)])
 
   )
