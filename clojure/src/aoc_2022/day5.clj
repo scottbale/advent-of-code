@@ -39,7 +39,7 @@
         to (->> to (apply str) (Long/parseLong))]
     {:count count :from from :to to}))
 
-(defn move
+(defn move ;; pt1
   "Move `n` items from stack `a` to stack `b`, return pair `[a' b']`"
   [a b n]
   (letfn [(move-one [[a' b']]
@@ -50,15 +50,23 @@
          (take (inc n))
          last)))
 
+(defn move2-electric-boogaloo ;; pt2
+  "Move `n` items from stack `a` to stack `b`, return pair `[a' b']`. But the CrateMover 9001 moves
+  all `n` crates at once!"
+  [a b n]
+  (let [i (- (count a) n)]
+    [(vec (take i a))
+     (vec (concat b (drop i a)))]))
+
 (defn apply-move
   "Apply the move to the state, returning a new state. State is a vector of stacks of values. Move
   is a map with keys `:count`, `:from`, `:to`"
-  [stacks {:keys [count from to]}]
+  [move-fn stacks {:keys [count from to]}]
   (let [from (dec from) ;; convert 1-based to 0-based
         to (dec to)
         a (nth stacks from)
         b (nth stacks to)
-        [a' b'] (move a b count)]
+        [a' b'] (move-fn a b count)]
     (-> stacks
         (assoc from a')
         (assoc to b'))))
@@ -69,7 +77,7 @@
   [stacks]
   (reduce str (map peek stacks)))
 
-(defn runner
+(defn runner1 ;; pt 1
   "Where to start with this one? The first part of the input seq, up to the blank line, is the initial
   state of stacks. After the blank line is the list of moves to perform on the stacks. Use chars as
   values, ultimately assembling a final string from the chars that are the top of each stack after
@@ -85,10 +93,33 @@
                               (parse-stack-input-line)
                               (conj-stack-input stacks'))) fresh-stacks (-> stack-input reverse rest))
         moves (map parse-move moves-input)]
-    (extract-result (reduce apply-move stacks moves))))
+    (extract-result (reduce (partial apply-move move) stacks moves))))
+
+(defn runner ;; pt 2
+  "Same as runner1 except passes a different function arg to `apply-move`"
+  [input]
+  (let [[stack-input _ moves-input] (partition-by str/blank? input)
+        n (-> stack-input last butlast last str Long/parseLong)
+        fresh-stacks (fresh-stack-state n)
+        stacks (reduce (fn [stacks' input]
+                         (->> input
+                              (parse-stack-input-line)
+                              (conj-stack-input stacks'))) fresh-stacks (-> stack-input reverse rest))
+        moves (map parse-move moves-input)]
+    (extract-result (reduce (partial apply-move move2-electric-boogaloo) stacks moves))))
 
 
 (comment
+
+  (runner1 ["    [D]"
+            "[N] [C]"
+            "[Z] [M] [P]"
+            " 1   2   3 "
+            ""
+            "move 1 from 2 to 1"
+            "move 3 from 1 to 3"
+            "move 2 from 2 to 1"
+            "move 1 from 1 to 2"]) ;; "CMZ"
 
   (runner ["    [D]"
            "[N] [C]"
@@ -98,21 +129,10 @@
            "move 1 from 2 to 1"
            "move 3 from 1 to 3"
            "move 2 from 2 to 1"
-           "move 1 from 1 to 2"]) ;; "CMZ"
-
-  (runner ["[V]     [B]                     [C]"
-           "[C]     [N] [G]         [W]     [P]"
-           "[W]     [C] [Q] [S]     [C]     [M]"
-           "[L]     [W] [B] [Z]     [F] [S] [V]"
-           "[R]     [G] [H] [F] [P] [V] [M] [T]"
-           "[M] [L] [R] [D] [L] [N] [P] [D] [W]"
-           "[F] [Q] [S] [C] [G] [G] [Z] [P] [N]"
-           "[Q] [D] [P] [L] [V] [D] [D] [C] [Z]"
-           " 1   2   3   4   5   6   7   8   9 " 
-           ""])
+           "move 1 from 1 to 2"]) ;; "MCD"
 
   (with-open [r (io/reader (io/resource "aoc-2022/day5.txt"))]
-    (runner (line-seq r))) ;; "VWLCWGSDQ"
+    (runner (line-seq r))) ;; "TCGLQSLPW" ;; "VWLCWGSDQ"
 
   (conj-stack-input (fresh-stack-state 3) " D")
 
@@ -129,8 +149,10 @@
   (parse-move "move 11 from 7 to 2")
 
   (move [:a :b :c] [:d :e] 3)
+  (move2-electric-boogaloo [:a :b :c] [:d :e] 3)
 
   (apply-move
+   move
    [[:a :b :c :d :e]
     [:f :g :h :i :j]
     [:k :l :m :n :o]]
