@@ -33,7 +33,29 @@
           tallest-other-val (apply max other-vals)]
       (> i-val tallest-other-val))))
 
-(defn runner
+(defn scenic-seq
+  "Given a tree height `h` and a seq of adjacent trees with heights `hs`, return the sequence of
+  visible trees from `h`. The sequence is up to, and including, the first tree that is as tall as or
+  taller than `h`."
+  ;; Copied from `take-while`
+  [h hs]
+  (lazy-seq
+   (when-let [s (seq hs)]
+     (cond
+       (> h (first s)) (cons (first s) (scenic-seq h (rest s)))
+       :else (take 1 s)))))
+
+(defn scenic-score
+  "Given a `grid` and a `path` from `i` to an edge, calculate the 'scenic score' of the grid value at index `i`"
+  [grid [i next-i :as path]]
+  (if (nil? next-i)
+    0
+    (let [i-val (get grid i)
+          other-vals (map #(get grid %) (rest path))
+          ]
+      (count (scenic-seq i-val other-vals)))))
+
+(defn runner1 ;; pt 1
   "How many trees are visible from outside the map?"
   [input]
   (let [width (-> input first count)
@@ -50,6 +72,22 @@
          (filter true?)
          count)))
 
+(defn runner ;; pt 2
+  "Find the maximum 'scenic score' of the trees in the grid."
+  [input]
+  (let [width (-> input first count)
+        height (count input)
+        n (* width height)
+        grid (vec (mapcat #(map (comp edn/read-string str) %) input))
+        scores (vec (repeat 25 0))
+        indices (range 0 n)
+        reduce-fn (fn [m i]
+                    (let [bs (bounds width height i)]
+                      (assoc m i (apply * (map (partial scenic-score grid) bs)))))]
+    (->> indices
+         (reduce reduce-fn scores)
+         (apply max))))
+
 
 (comment
 
@@ -58,19 +96,37 @@
            "25512" 
            "65332" 
            "33549" 
-           "35390"]) ;; 21
-
+           "35390"]) ;; 8 ;; 21
 
   (with-open [r (io/reader (io/resource "aoc-2022/day8.txt"))]
-    (runner (line-seq r))) ;; 1825
-  ;; 3346 too high
+    (runner (line-seq r)))
+  ;; pt 2: 235200 ;; 119 too low
+  ;; pt 1: 1825 ;; 3346 too high
+
+  (let [grid [3 0 3 7 3
+              2 5 4 5 2
+              6 5 3 5 2
+              3 3 5 4 9
+              3 5 3 9 0]]
+    (tallest? grid [11 12 13 14]))
 
   (let [grid [3 0 3 7 3 
               2 5 4 5 2 
               6 5 3 5 2 
               3 3 5 4 9 
               3 5 3 9 0]]
-    (tallest? grid [11 12 13 14]))
+    (scenic-score grid [11 12 13 14])
+    ;;(scenic-score grid [11 10])
+    ;;(scenic-score grid [10])
+    )
+
+  (scenic-seq 8 [7 8 9 9])
+  (scenic-seq 8 [7 9 9])
+  (scenic-seq 8 [7 8])
+  (scenic-seq 8 [7 8 9])
+  (scenic-seq 8 [7 7 9])
+  (scenic-seq 8 [7 7])
+  (scenic-seq 8 [7 6 8 9])
 
   (let [grid [3 0 3 7 3 
               2 5 5 1 2 
@@ -114,7 +170,5 @@
       ;; (tallest? grid [10])
       (reduce (partial foo' w h grid) visible indices)
       ))
-
-
 
   )
