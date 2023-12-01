@@ -4,6 +4,7 @@
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.string :as str]
+   [clojure.walk :as walk]
    [clojure.zip :as z]))
 
 (defn z-total
@@ -103,6 +104,33 @@
 
 (comment
 
+
+  (->> (z-runner ["$ cd /"
+                  "$ ls"
+                  "dir a"
+                  "14848514 b.txt"
+                  "8504156 c.dat"
+                  "dir d"
+                  "$ cd a"
+                  "$ ls"
+                  "dir e"
+                  "29116 f"
+                  "2557 g"
+                  "62596 h.lst"
+                  "$ cd e"
+                  "$ ls"
+                  "584 i"
+                  "$ cd .."
+                  "$ cd .."
+                  "$ cd d"
+                  "$ ls"
+                  "4060174 j"
+                  "8033020 d.log"
+                  "5626152 d.ext"
+                  "7214296 k"])
+       z/root
+       walk/prewalk-demo)
+
   (runner ["$ cd /"
            "$ ls"
            "dir a"
@@ -125,7 +153,8 @@
            "4060174 j"
            "8033020 d.log"
            "5626152 d.ext"
-           "7214296 k"]) ;; 24933642 ;; 95437
+           "7214296 k"])
+  ;; 24933642 ;; 95437
   ;; full tree should be [48381165 [94853 [584]] [24933642]]
 
   (with-open [r (io/reader (io/resource "aoc-2022/day7.txt"))]
