@@ -7,11 +7,11 @@
 
 (defn parse-rule
   "Given a line of input representing a pair insertion rule, which is a string that looks like 'CB ->
-  H', return a vector of three Strings [CB CH HB]"
+  H', return a map of first string CB to vector of remaining Strings [CH HB]"
   [rule-str]
   (let [[i j] (take 2 rule-str)
         k (last rule-str)]
-    [(str i j) (str i k) (str k j)]))
+    {(str i j) [(str i k) (str k j)]}))
 
 (defn initial-polymer-map
   "Turn the initial polymer string like 'NNCB' into a map of pairs each with an initial count of
@@ -63,7 +63,7 @@
   sort by frequencies low to high, return the diff of highest and lowest frequency."
   [i input]
   (let [counts-m (initial-polymer-map (first input))
-        rules-m (reduce (fn [m [k & r]] (assoc m k r)) {} (map parse-rule (drop 2 input)))
+        rules-m (apply merge (map parse-rule (drop 2 input)))
         counts-m' (first (drop i (iterate (partial step rules-m) counts-m)))
         sorted (sort-by second (kersplode counts-m'))]
     (- (-> sorted last second) (-> sorted first second))))
