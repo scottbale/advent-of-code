@@ -17,5 +17,5 @@
   (with-open [r (io/reader (io/resource "%s/%s.txt"))]
     (runner (line-seq r)))
 
-
+  ;; end comment
   )
