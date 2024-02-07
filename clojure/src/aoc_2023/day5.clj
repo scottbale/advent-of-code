@@ -126,42 +126,57 @@
               (reduce formulated-seed-number seed-number formulas))]
       (apply min (map (partial chain-formulas formulas) seed-numbers)))))
 
+(defn ranges-contiguous?
+  "Given a pair of formula ranges in a vector, are they contiguous? That is, are there any unmapped
+  numbers in between the two input ranges?"
+  [[r1 r2]]
+  (= (+ (:src-start r1) (:length r1)) (:src-start r2)))
+
+(defn non-contiguous-ranges
+  "Given a formula, return a (possibly empty) sequence of pairs of formulas which are not contiguous."
+  [{:keys [range-maps]}]
+  (let [sorted-maps (sort-by :src-start range-maps)
+        partitioned-maps (partition 2 1 sorted-maps)]
+    (remove ranges-contiguous? partitioned-maps)))
+
+(def formula-contiguous?
+  "All ranges in the formula are contiguous?"
+  (comp empty? non-contiguous-ranges))
+
+(defn range-pair->repair-range
+  "Given a pair of non-contiguous ranges, create and return a new (but inert) range to fill the gap"
+  [[{ss1 :src-start
+     l1 :length}
+    {ss2 :src-start}]]
+  (let [src-start (+ ss1 l1)
+        length (- ss2 src-start)]
+    {:src-start src-start :length length :delta 0 :dest-start src-start}))
+
+(defn repair-formula
+  "Given a formula, if the formula has any non-contiguous-ranges, 'repair' it by adding a range to
+  cover the gap (but which does no transformation, i.e. src-start and dest-start are identical).
+  Otherwise return the unmodified formula."
+  [{:keys [formula range-maps] :as f}]
+  (if-let [non-contiguous (seq (non-contiguous-ranges f))]
+    {:formula formula :range-maps (concat range-maps (map range-pair->repair-range non-contiguous))}
+    f))
+
+(defn dbg-runner
+  "With this, I learned that my earlier assumption was incorrect. Formulas *can* have ranges that are
+  not contiguous."
+  [input]
+  (let [formulas (->> input (drop 2) parse-formulas (map repair-formula))]
+    (every? formula-contiguous? formulas)))
+
 (defn runner2
   "Difference from part 1: the first line of input represents pairs of ranges of numbers (start and
   length). (Attempt #3.)"
   [input]
   (let [seed-number-ranges (parse-seed-number-range-pairs (first input))
-        formulas (parse-formulas (drop 2 input))
+        formulas (->> input (drop 2) parse-formulas (map repair-formula))
         mapped-seed-number-ranges (reduce (fn [seed-ranges formula]
                                             (mapcat #(formulated-seed-number-range % formula) seed-ranges)) seed-number-ranges formulas)]
     (reduce min (map first mapped-seed-number-ranges))))
-
-(defn ranges-contiguous?
-  "Given a pair of formulas in a vector, are they contiguous? That is, are there any unmapped numbers
-  in between the two input ranges?"
-  [[f1 f2]]
-  (= (+ (:src-start f1) (:length f1)) (:src-start f2)))
-
-(defn formula-contiguous?
-  "All ranges in the formula are contiguous?"
-  [{:keys [range-maps]}]
-  (let [sorted-maps (sort-by :src-start range-maps)
-        partitioned-maps (partition 2 1 sorted-maps)]
-    (empty? (dbg (remove ranges-contiguous? partitioned-maps)))))
-
-(defn dbg-runner
-  [input]
-  (let [formulas (parse-formulas (drop 2 input))
-        _ (dbg (-> formulas first :formula))]
-    (every? formula-contiguous? formulas)))
-
-(comment
- (with-open [r (io/reader (io/resource "aoc-2023/day5.txt"))]
-   (dbg-runner (line-seq r)))
- ;; end comment
- )
-
-
 
 (comment
 
@@ -237,7 +252,9 @@
     (runner (line-seq r))) ;; 993500720
 
   (with-open [r (io/reader (io/resource "aoc-2023/day5.txt"))]
-    (runner2 (line-seq r))) ;; 60756547 too high "Elapsed time: 7.461912 msecs"
+    (runner2 (line-seq r)))
+  ;; 4917124 after 'repairing' formula range-maps
+  ;; 60756547 too high "Elapsed time: 7.461912 msecs"
 
   (parse-seed-numbers "seeds: 2 3 5")
   (parse-seed-numbers "seeds: 2 3 5 83")
@@ -305,6 +322,7 @@
   ;; It's not obvious from the puzzle description, but just eyeballing the data, it appears the range maps never have disjoint
   ;; ranges (ranges with unmapped numbers in between). If so, this simplifies the work because once an unmapped number is found
   ;; I can assume the rest of the seed number range is unmapped.
+  ;; [later] Not true, it turns out! See 'repair ranges'-related functions
   (formulated-seed-number-range [2 8] {:range-maps [{:dest-start 49 :src-start 2 :length 3 :delta 47}
                                                     {:dest-start 12 :src-start 7 :length 3 :delta 5}]}) ;; expect [[49 3] [5 2] [7 3]]
 
@@ -315,6 +333,25 @@
       {:dest-start 0 :src-start 11 :length 42 :delta -11}
       {:dest-start 42 :src-start 0 :length 7 :delta 42}
       {:dest-start 57 :src-start 7 :length 4 :delta 50})}) ;; [[44 1]]
+
+  (with-open [r (io/reader (io/resource "aoc-2023/day5.txt"))]
+    (dbg-runner (line-seq r)))
+
+  (let [f {:formula "foo"
+           :range-maps
+           [{:dest-start 31 :src-start 21 :length 10 :delta 10}
+            {:dest-start 51 :src-start 41 :length 10 :delta 10}
+            {:dest-start 11 :src-start 1 :length 10 :delta 10}
+            {:dest-start 21 :src-start 11 :length 10 :delta 10}
+            {:dest-start 41 :src-start 32 :length 9 :delta 9}]}]
+    ;;   (formula-contiguous? f)
+    ;;   (non-contiguous-ranges f)
+    (repair-formula f))
+
+  (range-pair->repair-range
+   '({:dest-start 31 :src-start 21 :length 10 :delta 10}
+     {:dest-start 41 :src-start 32 :length 9 :delta 9}))
+  ;; {:src-start 31 :length 1 :delta 0 :dest-start 31}
 
 
   ;; old stuff below this line
