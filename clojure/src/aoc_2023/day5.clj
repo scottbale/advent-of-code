@@ -18,23 +18,6 @@
   [input-str]
   (map edn/read-string (s/split (last (s/split input-str #": ")) #" ")))
 
-(defn parse-seed-number-ranges
-  "Parse the first line of input and return a lazy seq of longs.
-  Input is a string that looks like: `seeds: 1 2 3 4`
-  Each pair of numbers is a range: start and length."
-  [input-str]
-  (let [nms (parse-seed-numbers input-str)
-        ;; f (fn [result-set [start length]]
-        ;;     (into result-set (range start (+ start length))))
-        ranges (partition 2 nms)
-
-        f (fn [[start length]]
-            (range start (+ start length)))
-
-        ]
-    ;;(reduce f #{} (partition 2 nms))
-    (mapcat f ranges)))
-
 (defn parse-seed-number-range-pairs
   "Parse the first line of input and return a collection of pairs of longs. Each pair is (a) the start
   of a range, and (b) the count of numbers in the range."
@@ -119,23 +102,6 @@
     [10 5] [20 10 4] [[20 4] [14 1]]
     [10 5] [19 9 5] [[20 4] [14 1]]))
 
-#_(defn formulated-seed-number-range
-  "Given a seed number range and a formula, return the resulting collection of ranges representing the
-  entire input range applied to the formula. In other words, the formula may/will produce disjoint
-  multiple output ranges given the single input range."
-  [seed-range {:keys [range-maps]}]
-  (loop [[range-begin range-count :as r] seed-range result-ranges []]
-    (if-let [{:keys [src-start length] :as matched-range} (first (filter (partial matches-range? range-begin) range-maps))]
-      (let [new-start (lookup-in-range range-begin matched-range)
-            d (- range-count length)
-            src-start-delta (- range-begin src-start)
-            d' (+ d src-start-delta)
-            length' (- length src-start-delta)]
-        (if (pos? d)
-          (recur [(+ range-begin length') d'] (conj result-ranges [new-start length']))
-          (conj result-ranges [new-start range-count])))
-      (conj result-ranges r))))
-
 (defn formulated-seed-number-range
   "Given a seed number range and a formula, return the resulting collection of ranges representing the
   entire input range applied to the formula. In other words, the formula may/will produce disjoint
@@ -160,29 +126,6 @@
               (reduce formulated-seed-number seed-number formulas))]
       (apply min (map (partial chain-formulas formulas) seed-numbers)))))
 
-#_(defn runner2
-  "Difference from part 1: the first line of input represents pairs of ranges of numbers (start and
-  length)."
-  [input]
-  (let [seed-numbers (parse-seed-number-ranges (first input))
-        formulas (parse-formulas (drop 2 input))]
-    ;; (count seed-numbers)
-    (letfn [(chain-formulas [formulas seed-number]
-              (reduce formulated-seed-number seed-number formulas))]
-      (apply min (map (partial chain-formulas formulas) seed-numbers)))))
-
-#_(defn runner2
-  "Difference from part 1: the first line of input represents pairs of ranges of numbers (start and
-  length). (Attempt #2 with lazyness.)"
-  [input]
-  (let [seed-numbers (parse-seed-number-ranges (first input))
-        formulas (parse-formulas (drop 2 input))
-        chain-formulas (fn [formulas seed-number]
-                         (reduce formulated-seed-number seed-number formulas))
-        mapped-seed-numbers (map (partial chain-formulas formulas) seed-numbers)
-        ]
-    (reduce min mapped-seed-numbers)))
-
 (defn runner2
   "Difference from part 1: the first line of input represents pairs of ranges of numbers (start and
   length). (Attempt #3.)"
@@ -190,11 +133,34 @@
   (let [seed-number-ranges (parse-seed-number-range-pairs (first input))
         formulas (parse-formulas (drop 2 input))
         mapped-seed-number-ranges (reduce (fn [seed-ranges formula]
-                                            (mapcat #(formulated-seed-number-range % formula) seed-ranges)) seed-number-ranges formulas)
-        ]
-    (reduce min (map first mapped-seed-number-ranges))
-    ;; mapped-seed-number-ranges
-    ))
+                                            (mapcat #(formulated-seed-number-range % formula) seed-ranges)) seed-number-ranges formulas)]
+    (reduce min (map first mapped-seed-number-ranges))))
+
+(defn ranges-contiguous?
+  "Given a pair of formulas in a vector, are they contiguous? That is, are there any unmapped numbers
+  in between the two input ranges?"
+  [[f1 f2]]
+  (= (+ (:src-start f1) (:length f1)) (:src-start f2)))
+
+(defn formula-contiguous?
+  "All ranges in the formula are contiguous?"
+  [{:keys [range-maps]}]
+  (let [sorted-maps (sort-by :src-start range-maps)
+        partitioned-maps (partition 2 1 sorted-maps)]
+    (empty? (dbg (remove ranges-contiguous? partitioned-maps)))))
+
+(defn dbg-runner
+  [input]
+  (let [formulas (parse-formulas (drop 2 input))
+        _ (dbg (-> formulas first :formula))]
+    (every? formula-contiguous? formulas)))
+
+(comment
+ (with-open [r (io/reader (io/resource "aoc-2023/day5.txt"))]
+   (dbg-runner (line-seq r)))
+ ;; end comment
+ )
+
 
 
 (comment
@@ -275,9 +241,6 @@
 
   (parse-seed-numbers "seeds: 2 3 5")
   (parse-seed-numbers "seeds: 2 3 5 83")
-
-  (parse-seed-number-ranges "seeds: 2 5 30 8")
-  (take 10 (parse-seed-number-ranges "seeds: 304740406 53203352 1080760686 52608146"))
 
   (parse-seed-number-range-pairs "seeds: 79 14 35 15") ;; ((79 14) (35 15))
   (parse-seed-number-range-pairs "seeds: 79 14 35 15 22 8") ;; ((79 14) (35 15) (22 8))
