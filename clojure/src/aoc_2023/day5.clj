@@ -8,6 +8,7 @@
    [clojure.edn :as edn]
    [clojure.java.io :as io]
    [clojure.string :as s]
+   [clojure.test :refer [deftest are]]
    [debugger :refer [dbg]]))
 
 (defn parse-seed-numbers
@@ -17,14 +18,40 @@
   [input-str]
   (map edn/read-string (s/split (last (s/split input-str #": ")) #" ")))
 
+(defn parse-seed-number-ranges
+  "Parse the first line of input and return a lazy seq of longs.
+  Input is a string that looks like: `seeds: 1 2 3 4`
+  Each pair of numbers is a range: start and length."
+  [input-str]
+  (let [nms (parse-seed-numbers input-str)
+        ;; f (fn [result-set [start length]]
+        ;;     (into result-set (range start (+ start length))))
+        ranges (partition 2 nms)
+
+        f (fn [[start length]]
+            (range start (+ start length)))
+
+        ]
+    ;;(reduce f #{} (partition 2 nms))
+    (mapcat f ranges)))
+
+(defn parse-seed-number-range-pairs
+  "Parse the first line of input and return a collection of pairs of longs. Each pair is (a) the start
+  of a range, and (b) the count of numbers in the range."
+  [input-str]
+  (let [nms (parse-seed-numbers input-str)]
+    (partition 2 nms)))
+
 (defn parse-range-map
   "A range is a map indicating the destination range start, the source range start, and the length of
-  the range."
+  the range. A fourth key, :delta, is a convenience to indicate the difference between destination
+  and source range start."
   [range-str]
   (let [[dest-start src-start length] (map edn/read-string (s/split range-str #" "))]
     {:dest-start dest-start
      :src-start src-start
-     :length length}))
+     :length length
+     :delta (- dest-start src-start)}))
 
 (defn parse-formula
   "Given a sequence of input strings, return a map representing a formula."
@@ -39,22 +66,22 @@
   [input-lines]
   (loop [inputs input-lines results []]
     (if (seq inputs)
-      (let [pred (comp not s/blank?) 
+      (let [pred (complement s/blank?)
             formula-inputs (take-while pred inputs)
             remaining-inputs (->> inputs (drop-while pred) rest)]
         (recur remaining-inputs (conj results (parse-formula formula-inputs) )))
       results)))
 
 (defn matches-range?
-  "Predicate"
+  "Predicate. Is the seed number in the range? The length of the range is the count of numbers in the
+  range, and is inclusive of the range start."
   [seed-number {:keys [src-start length]}]
-  (<= src-start seed-number (+ src-start length)))
+  (<= src-start seed-number (dec (+ src-start length))))
 
 (defn lookup-in-range
   "For a seed number known to be in the range, look up the resulting number."
-  [seed-number {:keys [src-start dest-start]}]
-  (let [delta (- dest-start src-start )]
-    (+ delta seed-number)))
+  [seed-number {:keys [delta]}]
+  (+ delta seed-number))
 
 (defn formulated-seed-number
   "Given a seed number and a formula, return the resulting lookup of the seed number in the formula.
@@ -65,6 +92,64 @@
     (lookup-in-range seed-number matched-range)
     seed-number))
 
+(defn range-step
+  "Takes a seed range and a formula range, returns a collection containing one or two seed ranges. The
+  first returned range is the input seed range transformed by the formula range. If a second range
+  is returned, it is the remaining portion of the input seed range that falls outside of the formula
+  range.
+  A seed range is a pair of longs.
+  A formula range is a map, one of the :range-maps from a formula."
+  [[seed-range-start seed-range-length] {:keys [src-start length delta]}]
+  (let [seed-range-start' (+ delta seed-range-start)
+        src-end (+ src-start length)
+        length' (min seed-range-length (- src-end seed-range-start))]
+    (cond-> [[seed-range-start' length']]
+      (< length' seed-range-length) (conj [(+ length' seed-range-start) (- seed-range-length length')]))))
+
+(deftest range-step-test
+  (are [seed-range formula-range expected-results]
+      (let [[ds ss l] formula-range
+            formula-map {:dest-start ds :src-start ss :length l :delta (- ds ss)}]
+        (= expected-results (range-step seed-range formula-map)))
+    [3 6] [22 2 8] [[23 6]]
+    [10 5] [20 10 5] [[20 5]]
+    [10 5] [19 9 6] [[20 5]]
+    [10 5] [20 10 10] [[20 5]]
+    [10 5] [19 9 7] [[20 5]]
+    [10 5] [20 10 4] [[20 4] [14 1]]
+    [10 5] [19 9 5] [[20 4] [14 1]]))
+
+#_(defn formulated-seed-number-range
+  "Given a seed number range and a formula, return the resulting collection of ranges representing the
+  entire input range applied to the formula. In other words, the formula may/will produce disjoint
+  multiple output ranges given the single input range."
+  [seed-range {:keys [range-maps]}]
+  (loop [[range-begin range-count :as r] seed-range result-ranges []]
+    (if-let [{:keys [src-start length] :as matched-range} (first (filter (partial matches-range? range-begin) range-maps))]
+      (let [new-start (lookup-in-range range-begin matched-range)
+            d (- range-count length)
+            src-start-delta (- range-begin src-start)
+            d' (+ d src-start-delta)
+            length' (- length src-start-delta)]
+        (if (pos? d)
+          (recur [(+ range-begin length') d'] (conj result-ranges [new-start length']))
+          (conj result-ranges [new-start range-count])))
+      (conj result-ranges r))))
+
+(defn formulated-seed-number-range
+  "Given a seed number range and a formula, return the resulting collection of ranges representing the
+  entire input range applied to the formula. In other words, the formula may/will produce disjoint
+  multiple output ranges given the single input range."
+  [seed-range {:keys [range-maps]}]
+  (loop [[range-begin :as r] seed-range result-ranges []]
+    (if-let [matched-range (first (filter (partial matches-range? range-begin) range-maps))]
+      (let [[transformed-range remaining-range] (range-step r matched-range)
+            result-ranges (conj result-ranges transformed-range)]
+        (if remaining-range
+          (recur remaining-range result-ranges)
+          result-ranges))
+      (conj result-ranges r))))
+
 (defn runner
   "Parse the input into (a) a seq of seed numbers, and (b) seq of formulas. For each seed number,
   chain it through all of the formulas. Return the minimum of the result."
@@ -74,6 +159,42 @@
     (letfn [(chain-formulas [formulas seed-number]
               (reduce formulated-seed-number seed-number formulas))]
       (apply min (map (partial chain-formulas formulas) seed-numbers)))))
+
+#_(defn runner2
+  "Difference from part 1: the first line of input represents pairs of ranges of numbers (start and
+  length)."
+  [input]
+  (let [seed-numbers (parse-seed-number-ranges (first input))
+        formulas (parse-formulas (drop 2 input))]
+    ;; (count seed-numbers)
+    (letfn [(chain-formulas [formulas seed-number]
+              (reduce formulated-seed-number seed-number formulas))]
+      (apply min (map (partial chain-formulas formulas) seed-numbers)))))
+
+#_(defn runner2
+  "Difference from part 1: the first line of input represents pairs of ranges of numbers (start and
+  length). (Attempt #2 with lazyness.)"
+  [input]
+  (let [seed-numbers (parse-seed-number-ranges (first input))
+        formulas (parse-formulas (drop 2 input))
+        chain-formulas (fn [formulas seed-number]
+                         (reduce formulated-seed-number seed-number formulas))
+        mapped-seed-numbers (map (partial chain-formulas formulas) seed-numbers)
+        ]
+    (reduce min mapped-seed-numbers)))
+
+(defn runner2
+  "Difference from part 1: the first line of input represents pairs of ranges of numbers (start and
+  length). (Attempt #3.)"
+  [input]
+  (let [seed-number-ranges (parse-seed-number-range-pairs (first input))
+        formulas (parse-formulas (drop 2 input))
+        mapped-seed-number-ranges (reduce (fn [seed-ranges formula]
+                                            (mapcat #(formulated-seed-number-range % formula) seed-ranges)) seed-number-ranges formulas)
+        ]
+    (reduce min (map first mapped-seed-number-ranges))
+    ;; mapped-seed-number-ranges
+    ))
 
 
 (comment
@@ -109,15 +230,57 @@
            "1 0 69"
            ""
            "humidity-to-location map:"
-
            "60 56 37"
            "56 93 4"]) ;; 35
+
+  (runner2 ["seeds: 79 14 55 13"
+            ""
+            "seed-to-soil map:"
+            "50 98 2"
+            "52 50 48"
+            ""
+            "soil-to-fertilizer map:"
+            "0 15 37"
+            "37 52 2"
+            "39 0 15"
+            ""
+            "fertilizer-to-water map:"
+            "49 53 8"
+            "0 11 42"
+            "42 0 7"
+            "57 7 4"
+            ""
+            "water-to-light map:"
+            "88 18 7"
+            "18 25 70"
+            ""
+            "light-to-temperature map:"
+            "45 77 23"
+            "81 45 19"
+            "68 64 13"
+            ""
+            "temperature-to-humidity map:"
+            "0 69 1"
+            "1 0 69"
+            ""
+            "humidity-to-location map:"
+            "60 56 37"
+            "56 93 4"]) ;; 46
 
   (with-open [r (io/reader (io/resource "aoc-2023/day5.txt"))]
     (runner (line-seq r))) ;; 993500720
 
+  (with-open [r (io/reader (io/resource "aoc-2023/day5.txt"))]
+    (runner2 (line-seq r))) ;; 60756547 too high "Elapsed time: 7.461912 msecs"
+
   (parse-seed-numbers "seeds: 2 3 5")
   (parse-seed-numbers "seeds: 2 3 5 83")
+
+  (parse-seed-number-ranges "seeds: 2 5 30 8")
+  (take 10 (parse-seed-number-ranges "seeds: 304740406 53203352 1080760686 52608146"))
+
+  (parse-seed-number-range-pairs "seeds: 79 14 35 15") ;; ((79 14) (35 15))
+  (parse-seed-number-range-pairs "seeds: 79 14 35 15 22 8") ;; ((79 14) (35 15) (22 8))
 
   (parse-range-map "0 15 37")
 
@@ -143,25 +306,53 @@
     "42 0 7"
     "57 7 4"])
 
-  (matches-range? 2 {:dest-start 49, :src-start 53, :length 8})
-  (matches-range? 52 {:dest-start 49, :src-start 53, :length 8})
-  (matches-range? 53 {:dest-start 49, :src-start 53, :length 8})
-  (matches-range? 54 {:dest-start 49, :src-start 53, :length 8})
-  (matches-range? 61 {:dest-start 49, :src-start 53, :length 8})
-  (matches-range? 62 {:dest-start 49, :src-start 53, :length 8})
+  (matches-range? 2 {:dest-start 49 :src-start 53 :length 8}) ;; false
+  (matches-range? 52 {:dest-start 49 :src-start 53 :length 8}) ;; false
+  (matches-range? 53 {:dest-start 49 :src-start 53 :length 8}) ;; true
+  (matches-range? 54 {:dest-start 49 :src-start 53 :length 8}) ;; true
+  (matches-range? 60 {:dest-start 49 :src-start 53 :length 8}) ;; true
+  (matches-range? 61 {:dest-start 49 :src-start 53 :length 8}) ;; false
+  (matches-range? 62 {:dest-start 49 :src-start 53 :length 8}) ;; false
 
-  (lookup-in-range 53 {:dest-start 49, :src-start 53, :length 8}) ;; 49
-  (lookup-in-range 54 {:dest-start 49, :src-start 53, :length 8}) ;; 50
-  (lookup-in-range 60 {:dest-start 49, :src-start 53, :length 8}) ;; 56
+  (lookup-in-range 60 {:dest-start 49 :src-start 53 :length 8 :delta -4}) ;;56
 
   (formulated-seed-number
    3
-   {:formula "fertilizer-to-water",
+   {:formula "fertilizer-to-water"
     :range-maps
-    '({:dest-start 49, :src-start 53, :length 8}
-      {:dest-start 0, :src-start 11, :length 42}
-      {:dest-start 42, :src-start 0, :length 7}
-      {:dest-start 57, :src-start 7, :length 4})}) ;; 45
+    '({:dest-start 49 :src-start 53 :length 8 :delta -4}
+      {:dest-start 0 :src-start 11 :length 42 :delta -11}
+      {:dest-start 42 :src-start 0 :length 7 :delta 42}
+      {:dest-start 57 :src-start 7 :length 4 :delta 50})}) ;; 45
+
+  (formulated-seed-number-range [2 1] {:range-maps []}) ;; [[2 1]]
+  (formulated-seed-number-range [2 5] {:range-maps [{:dest-start 49 :src-start 2 :length 8 :delta 47}]}) ;; [[49 5]]
+  (formulated-seed-number-range [2 8] {:range-maps [{:dest-start 49 :src-start 2 :length 5 :delta 47}]}) ;; [[49 5] [7 3]]
+  (formulated-seed-number-range [2 8] {:range-maps [{:dest-start 49 :src-start 2 :length 8 :delta 47}]}) ;; [[49 8]]
+  (formulated-seed-number-range [2 8] {:range-maps [{:dest-start 49 :src-start 2 :length 7 :delta 47}]}) ;; [[49 7] [9 1]]
+  (formulated-seed-number-range [2 8] {:range-maps [{:dest-start 49 :src-start 2 :length 5 :delta 47}
+                                                    {:dest-start 12 :src-start 7 :length 3 :delta 5}]}) ;; [[49 5] [12 3]]
+  (formulated-seed-number-range [2 8] {:range-maps [{:dest-start 48 :src-start 1 :length 6 :delta 47}
+                                                    {:dest-start 12 :src-start 7 :length 3 :delta 5}]}) ;; [[49 5] [12 3]]
+  (formulated-seed-number-range [2 9] {:range-maps [{:dest-start 48 :src-start 1 :length 4 :delta 47}
+                                                    {:dest-start 12 :src-start 5 :length 3 :delta 7}
+                                                    {:dest-start 1  :src-start 8 :length 8 :delta -7}]}) ;; [[49 3][12 3][1 3]]
+
+  ;; This is invalid input.
+  ;; It's not obvious from the puzzle description, but just eyeballing the data, it appears the range maps never have disjoint
+  ;; ranges (ranges with unmapped numbers in between). If so, this simplifies the work because once an unmapped number is found
+  ;; I can assume the rest of the seed number range is unmapped.
+  (formulated-seed-number-range [2 8] {:range-maps [{:dest-start 49 :src-start 2 :length 3 :delta 47}
+                                                    {:dest-start 12 :src-start 7 :length 3 :delta 5}]}) ;; expect [[49 3] [5 2] [7 3]]
+
+  (formulated-seed-number-range
+   [2 1]
+   {:range-maps
+    '({:dest-start 49 :src-start 53 :length 8 :delta -4}
+      {:dest-start 0 :src-start 11 :length 42 :delta -11}
+      {:dest-start 42 :src-start 0 :length 7 :delta 42}
+      {:dest-start 57 :src-start 7 :length 4 :delta 50})}) ;; [[44 1]]
+
 
   ;; old stuff below this line
 
