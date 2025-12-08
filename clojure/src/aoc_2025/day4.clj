@@ -31,6 +31,28 @@
      (filter (comp pred second))
      count)))
 
+(defn runner2
+  "Recursively remove the removable paper rolls, generating a new grid, until no
+  more rolls can be removed; return the total count of removed rolls."
+  [inputs]
+  (let [w (grid/width inputs)
+        h (grid/height inputs)
+        input (apply concat inputs)
+        remover (fn [an-alist indices]
+                  (reduce (fn [the-alist i]
+                            (assoc the-alist i [\. i])) an-alist (map second indices)))]
+    (loop [alist (->> input grid/alist vec)
+           counts 0]
+      (let [pred (partial roll-accessible? w h alist)
+            removeds (->>
+                      alist
+                      (filter (comp pred second)))
+            removed-count (count removeds)
+            counts (+ counts removed-count)]
+        (if (= 0 removed-count)
+          counts
+          (recur (remover alist removeds) counts))))))
+
 
 (comment
 
@@ -45,8 +67,22 @@
            ".@@@@@@@@."
            "@.@.@@@.@."]) ;; 13
 
+  (runner2 ["..@@.@@@@."
+            "@@@.@.@.@@"
+            "@@@@@.@.@@"
+            "@.@@@@..@."
+            "@@.@@@@.@@"
+            ".@@@@@@@.@"
+            ".@.@.@.@@@"
+            "@.@@@.@@@@"
+            ".@@@@@@@@."
+            "@.@.@@@.@."]) ;; 43
+
   (with-open [r (io/reader (io/resource "aoc-2025/day4.txt"))]
     (runner (line-seq r))) ;; 1320
+
+  (with-open [r (io/reader (io/resource "aoc-2025/day4.txt"))]
+    (runner2 (line-seq r))) ;; 8354
 
   (->> 
    ["..@@.@@@@." 
