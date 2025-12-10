@@ -32,13 +32,18 @@
   duplicates, because duplicates represent different timelines that arrive at
   the same index.)"
   [states splitters]
-  (reduce
-   (fn [new-states timeline-index]
-     (if (splitters timeline-index)
-       (conj new-states (dec timeline-index) (inc timeline-index))
-       (conj new-states timeline-index)))
-   []
-   states))
+  (let [maybe-split (memoize (fn [timeline-index]
+                               (if (splitters timeline-index)
+                                 [(dec timeline-index) (inc timeline-index)]
+                                 [timeline-index])))]
+    (reduce
+     (fn [new-states timeline-index]
+       #_(if (splitters timeline-index)
+         (conj new-states (dec timeline-index) (inc timeline-index))
+         (conj new-states timeline-index))
+       (into new-states (maybe-split timeline-index)))
+     []
+     states)))
 
 (defn input->indices
   "Given a string line of input and a set of chars, return a coll of indices of
@@ -140,6 +145,12 @@
 
   (with-open [r (io/reader (io/resource "aoc-2025/day7.txt"))]
     (runner2 (line-seq r)))
+
+  (time (with-open [r (io/reader (io/resource "aoc-2025/day7_80.txt"))]
+     (runner2 (line-seq r))))
+
+  ;; 70 "Elapsed time: 4133.042042 msecs"
+  ;; 80 "Elapsed time: 28956.696834 msecs"
 
   ;; end comment
   )
