@@ -82,8 +82,50 @@
      vals
      set
      count)
-    (let [[_ [x1] [x2]] (last sorted-N)]
+    (let [[_ [x1] [x2] :as t] (last sorted-N)]
+      (dbg t)
       (* x1 x2))))
+
+(defn runner2a
+  "Do a proper automated binary search. `N` will simply be the starting point."
+  [N input]
+  (let [points (->> input (map parse-pt))
+        points-alist (->> points (map vector (range)))
+        pairs ;; and distances
+        (for [[i pt1] points-alist
+              [j pt2] points-alist
+              :when (< i j)]
+          [(d pt1 pt2) pt1 pt2])
+        initial-circuit-map (reduce (fn [m k] (assoc m k #{k})) {} points)
+        sorted-pairs (->> pairs (sort-by first))]
+    (loop [circuit-map initial-circuit-map
+           sorted-n (take N sorted-pairs)
+           sorted-rest sorted-pairs
+           step-size N]
+      ;; (println (format "loop: step-size:%d----------------------" step-size))
+      (let [next-circuit-map (->>
+                              sorted-n
+                              (reduce circuit-step circuit-map))
+            circuit-count (->> next-circuit-map vals set count)]
+        ;; (println "next circuit-count" circuit-count)
+        (cond
+          (and (= 1 step-size) (= 1 circuit-count))
+          ;; found the answer
+          (let [[_ [x1] [x2] :as t] (last sorted-n)]
+            ;; (dbg t)
+            (* x1 x2))
+
+          (= 1 circuit-count)
+          ;; back off
+          (let [;;_ (println "backoff:" circuit-count)
+                smaller-step-size (long (/ step-size 2))]
+            (recur circuit-map (take smaller-step-size sorted-rest) sorted-rest smaller-step-size))
+
+          (< 1 circuit-count)
+          ;; search forward
+          (let [;;_ (println "recur")
+                sorted-rest (drop step-size sorted-rest)]
+            (recur next-circuit-map (take step-size sorted-rest) sorted-rest step-size)))))))
 
 (comment
 
@@ -131,7 +173,30 @@
                "941,993,340"
                "862,61,35"
                "984,92,344"
-               "425,690,689"])
+               "425,690,689"]) ;; 25272
+
+  (runner2a 10 ["162,817,812"
+                "57,618,57"
+                "906,360,560"
+                "592,479,940"
+                "352,342,300"
+                "466,668,158"
+                "542,29,236"
+                "431,825,988"
+                "739,650,466"
+                "52,470,668"
+                "216,146,977"
+                "819,987,18"
+                "117,168,530"
+                "805,96,715"
+                "346,949,466"
+                "970,615,88"
+                "941,993,340"
+                "862,61,35"
+                "984,92,344"
+                "425,690,689"]) ;; 25272
+  ;; correct triple:
+  ;; [458.360120429341 [216 146 977] [117 168 530]]
 
    (time (with-open [r (io/reader (io/resource "aoc-2025/day8.txt"))]
       (runner 1000 (line-seq r)))) ;; 121770
@@ -139,6 +204,11 @@
 
    (time (with-open [r (io/reader (io/resource "aoc-2025/day8.txt"))]
       (runner2 5674 (line-seq r)))) ;; 7893123992
+
+   (time (with-open [r (io/reader (io/resource "aoc-2025/day8.txt"))]
+      (runner2a 1000 (line-seq r)))) ;; 7893123992
+   ;; [14579.235027942996 [85192 83319 96037] [92651 95352 99519]]
+   ;;"Elapsed time: 2314.79575 msecs"
 
 
    ;; list comprehension
