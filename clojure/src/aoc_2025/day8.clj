@@ -1,5 +1,5 @@
 (ns aoc-2025.day8
-  "docstring"
+  "Circuits"
   (:require
    [clojure.edn :as edn]
    [clojure.java.io :as io]
@@ -135,7 +135,7 @@
         initial-circuit-map (reduce (fn [m k] (assoc m k #{k})) {} points)
         sorted-pairs (->> pairs (sort-by first))]
 
-    (loop [circuit-map initial-circuit-map
+    #_(loop [circuit-map initial-circuit-map
            [first-sorted & sorteds] sorted-pairs
            ]
 
@@ -149,7 +149,22 @@
             (* x1 x2))
 
           :else
-          (recur next-circuit-map sorteds))))))
+          (recur next-circuit-map sorteds))))
+
+    ;; Reduce/reduced instead of loop/recur
+    (reduce
+     (fn [m k]
+       (let [new-circuit-map (circuit-step m k)
+             cm-count (->> new-circuit-map vals set count)]
+         (if (= 1 cm-count)
+           (let [[_ [x1] [x2]] k]
+             (reduced (* x1 x2)))
+           new-circuit-map)))
+     initial-circuit-map
+     sorted-pairs)
+
+
+    ))
 
 (comment
 
@@ -255,7 +270,7 @@
    ;; [14579.235027942996 [85192 83319 96037] [92651 95352 99519]]
    ;;"Elapsed time: 2314.79575 msecs"
 
-   ;; Time with much smaller initial step size 
+   ;; Time with much smaller initial step size
    ;; ... makes no difference. Binary search was unnecessary
    (time (with-open [r (io/reader (io/resource "aoc-2025/day8.txt"))]
       (runner2a 1 (line-seq r))))
