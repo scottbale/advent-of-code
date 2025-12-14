@@ -99,11 +99,11 @@
         initial-circuit-map (reduce (fn [m k] (assoc m k #{k})) {} points)
         sorted-pairs (->> pairs (sort-by first))]
     (loop [circuit-map initial-circuit-map
-           sorted-n (take N sorted-pairs)
-           sorted-rest sorted-pairs
+           sorteds sorted-pairs
            step-size N]
       ;; (println (format "loop: step-size:%d----------------------" step-size))
-      (let [next-circuit-map (->>
+      (let [sorted-n (take step-size sorteds)
+            next-circuit-map (->>
                               sorted-n
                               (reduce circuit-step circuit-map))
             circuit-count (->> next-circuit-map vals set count)]
@@ -119,13 +119,13 @@
           ;; back off
           (let [;;_ (println "backoff:" circuit-count)
                 smaller-step-size (long (/ step-size 2))]
-            (recur circuit-map (take smaller-step-size sorted-rest) sorted-rest smaller-step-size))
+            (recur circuit-map sorteds smaller-step-size))
 
           (< 1 circuit-count)
           ;; search forward
           (let [;;_ (println "recur")
-                sorted-rest (drop step-size sorted-rest)]
-            (recur next-circuit-map (take step-size sorted-rest) sorted-rest step-size)))))))
+                sorteds (drop step-size sorteds)]
+            (recur next-circuit-map sorteds step-size)))))))
 
 (comment
 
