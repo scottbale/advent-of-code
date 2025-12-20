@@ -1,4 +1,5 @@
 {:deps {org.clojure/clojure {:mvn/version "1.12.3"}
+        org.clojure/math.combinatorics {:mvn/version "0.3.0"}
         the/parsatron {:mvn/version "0.0.8"}}
 
 :paths ["src" "resources"]}
