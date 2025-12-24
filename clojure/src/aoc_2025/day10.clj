@@ -113,6 +113,17 @@
   [digit]
   (-> digit (bit-shift-right 1)))
 
+(defn halving
+  "Given a vector of digits, return a vector pair having a coefficient of doubling
+  and the digits halved 'coefficient' times, until there is at least one odd
+  digit."
+  [digits-vec]
+  (loop [i 1
+         digits-vec' digits-vec]
+    (if (every? even? digits-vec')
+      (recur (* 2 i) (mapv half digits-vec'))
+      [i digits-vec'])))
+
 (defn recursive-step
   "Accepts
 
@@ -133,20 +144,39 @@
    * Take the minimum result of all recursive calls, add to that the
      count of the combination for that recursive call, return that
      sum."
-  [buttons remaining]
-  (let [target (next-byte remaining)
-        combos (press-combinations buttons target)]
-    (->>
-     combos
-     (mapv (fn [c]
-             (let [rem' (decrement-numbers c remaining)]
-               (cond
-                 (nil? rem') nil
-                 (some pos? rem')
-                 (+ (count c) (* 2 (recursive-step buttons (mapv half rem'))))
-                 :else (count c)))))
-     (remove nil?)
-     (apply min))))
+  [i buttons remaining]
+  (let [indent (fn [i] (apply str (repeat i " ")))
+        tab (fn [i] (+ 4 i))
+        target (next-byte remaining)
+        combos (press-combinations buttons target)
+        ;; _ (println (indent i) "---------------------------------------")
+        ;; _ (println (indent i) (format "%d combos, considering remaining %s..." 
+        ;;                               (count combos)
+        ;;                               (str remaining)))
+        combo-counts
+        (->>
+         combos
+         (mapv (fn [j c]
+                 (let [rem' (decrement-numbers c remaining)
+                       res (cond
+                             (nil? rem') nil
+                             (some pos? rem')
+                             (let [[n rem''] (halving rem')
+                                   rec-res (recursive-step (tab i) buttons rem'')]
+                               (if (nil? rec-res)
+                                 nil
+                                 (+ (count c) (* n rec-res))))
+                             :else (count c))]
+                   #_(println 
+                    (indent i) 
+                    (format "%d) Combo %s yielded %s resulting in %d" j (into [] c) rem' res))
+                   res)) (rest (range)))
+         (remove nil?))
+        
+        result (if (seq combo-counts) (apply min combo-counts) nil)
+        ]
+    #_(println (indent i) (format "...count for remaining %s: %d" (str remaining) result))
+    result))
 
 (defn process-one
   "Process one line of input. Each of the tokens in the line of input can be represented as a byte,
@@ -163,33 +193,6 @@
                  (map parse-button-wiring-schematic))]
     (min-presses buttons expected)))
 
-#_(defn num-vector->bytes
-  "Given a vector of numbers of size N (the joltage requirements), return a sequence of N-digit bytes."
-  [num-vector]
-  (loop [result-bytes []
-         remaining-nums num-vector
-         i 0]
-    (let [[next-byte next-remaining]
-          (->>
-           remaining-nums
-           (map
-            (fn [i digit]
-              (if (even? digit)
-                [i 0 (half digit)]
-                [i 1 (half (dec digit))]))
-            (range))
-           (reduce
-            (fn [[result-byte result-nums] [i bit digit]]
-              (let [result-byte (if (< 0 bit) (bit-set result-byte i) result-byte)
-                    result-nums (conj result-nums digit)]
-                [result-byte result-nums]))
-            [(byte 0x00) []]))
-          result-bytes (conj result-bytes next-byte)
-          recur? (and (some pos? next-remaining) (< i 10))]
-      (if recur?
-        (recur result-bytes next-remaining (inc i))
-        result-bytes))))
-
 (defn process-one-pt2
   "Process one line of input for part 2."
   [input-str]
@@ -199,7 +202,7 @@
                  inputs
                  drop-last
                  (map parse-button-wiring-schematic))]
-    (recursive-step buttons joltages)))
+    (recursive-step 0 buttons joltages)))
 
 (defn runner
   "Sum the result (number of button presses) for each line of input."
@@ -215,6 +218,7 @@
   (->>
    inputs
    (map process-one-pt2)
+   (remove nil?)
    (reduce + 0)))
 
 
@@ -280,13 +284,31 @@
   (min-presses '(29 12 17 7 30) (byte 15)) ;; 2
   (min-presses '(29 12 17 7 30) (byte 4))  ;; 3
 
-  (recursive-step '(29 12 17 7 30) [7 5 12 7 2])
+  (recursive-step 0 '(29 12 17 7 30) [7 5 12 7 2])
 
   ;; (num-vector->bytes [44,35,48,43,24,44])
 
   ;; --------------------------------------------------------------------------
+  ;; should be 11
   (process-one-pt2 "[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}")
+  ;; [0 1 2 3 4] -> 31     <- 5x
+  ;; [0 3 4]     -> 25
+  ;; [0 1 2 4 5] -> 55     <- 5x
+  ;; [1 2]       -> 6      <-
 
+  ;; 4x [31 55], 2x [6], [25 55]
+  
+  ;; 55
+  ;; 6
+  ;; 31
+  (halving [8 8 8 4 8 4]);; [4 [2 2 2 1 2 1]]
+  (halving [2 2 2 1 2 1]);; [1 [2 2 2 1 2 1]]
+  (halving [4 2 4 8 6 4]);; [2 [2 1 2 4 3 2]]
+
+  ;; --------------------------------------------------------------------------
+  ;; try some real lines of input
+  (process-one-pt2 "[#.#..#] (1,3) (3,4) (0,3,5) (1,2,3,4) (0,2,5) (0,1) (2,5) {44,35,48,43,24,44}")
+  (process-one-pt2 "[#.####.] (2,3,4,6) (2,5) (0,1,2,4,5,6) (0,1,2,4,5) (0,2,3,4,5) (0,1,3,5,6) (5,6) (0,3,4,5,6) {61,52,67,37,57,87,63}") ;; 99
 
   (runner ["[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}"
            "[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}"
@@ -294,10 +316,13 @@
 
   (runner2 ["[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}"
             "[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}"
-            "[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}"]) ;; 34
+            "[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}"]) ;; 33
 
   (with-open [r (io/reader (io/resource "aoc-2025/day10.txt"))]
     (runner (line-seq r))) ;; 375
+
+  (time (with-open [r (io/reader (io/resource "aoc-2025/day10.txt"))]
+     (runner2 (line-seq r))));; 15182 too low
 
   
 
