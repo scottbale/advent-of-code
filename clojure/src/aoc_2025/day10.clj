@@ -68,7 +68,7 @@
       (let [combos (combo/combinations buttons i)
             results (->>
                      combos
-                     (filter (fn [btns] (= target (reduce bit-xor btns))))
+                     (filter (fn [btn] (= target (reduce bit-xor btn))))
                      (into results))]
         (if (< i n)
           (recur (inc i) results)
@@ -149,10 +149,11 @@
         tab (fn [i] (+ 4 i))
         target (next-byte remaining)
         combos (press-combinations buttons target)
-        ;; _ (println (indent i) "---------------------------------------")
-        ;; _ (println (indent i) (format "%d combos, considering remaining %s..." 
-        ;;                               (count combos)
-        ;;                               (str remaining)))
+        _ (println (indent i) "---------------------------------------")
+        _ (println (indent i) (format "%d combos for target %d, from joltages %s..." 
+                                      (count combos)
+                                      target
+                                      (str remaining)))
         combo-counts
         (->>
          combos
@@ -167,15 +168,14 @@
                                  nil
                                  (+ (count c) (* n rec-res))))
                              :else (count c))]
-                   #_(println 
+                   (println 
                     (indent i) 
                     (format "%d) Combo %s yielded %s resulting in %d" j (into [] c) rem' res))
                    res)) (rest (range)))
          (remove nil?))
         
-        result (if (seq combo-counts) (apply min combo-counts) nil)
-        ]
-    #_(println (indent i) (format "...count for remaining %s: %d" (str remaining) result))
+        result (if (seq combo-counts) (apply min combo-counts) nil)]
+    (println (indent i) (format "...count for remaining %s: %d" (str remaining) result))
     result))
 
 (defn process-one
@@ -220,6 +220,13 @@
    (map process-one-pt2)
    (remove nil?)
    (reduce + 0)))
+
+(defn runner2debug
+  [inputs]
+  (doseq [input inputs]
+    (when (nil? (process-one-pt2 input))
+      (println "Found an input yielding nil:" input)))
+  )
 
 
 (comment
@@ -323,8 +330,22 @@
 
   (time (with-open [r (io/reader (io/resource "aoc-2025/day10.txt"))]
      (runner2 (line-seq r))));; 15182 too low
-
+  ;; "Elapsed time: 140859.683083 msecs"
   
+  (time (with-open [r (io/reader (io/resource "aoc-2025/day10.txt"))]
+     (runner2debug (line-seq r)))) ;; "Elapsed time: 138732.852958 msecs"
+  "Found an input yielding nil: [..##] (1,2,3) (0,1) (0,1,2,3) {4,4,0,0}"
+  "Found an input yielding nil: [.#..] (2,3) (1,2,3) (0,3) (0,2) {20,9,189,183}"
+
+  (process-one-pt2 "[..##] (1,2,3) (0,1) (0,1,2,3) {4,4,0,0}")
+  (process-one-pt2 "[.#..] (2,3) (1,2,3) (0,3) (0,2) {20,9,189,183}")
+  (recursive-step 0 '(12 14 9 5) [0 0 0 1])
+  (next-byte [0 0 0 1]) ;; 8
+  (press-combinations '(12 14 9 5) 8)
+  (press-combinations '(12 14 9 5) 9)
+  (next-byte [20 9 189 183]) ;; 14
+  (press-combinations '(12 14 9 5) 14) ;; #{(12 14 9 5) (14)}
+  (halving [18 8 186 180]) ;; [2 [9 4 93 90]]
 
   ;; end comment
   )
